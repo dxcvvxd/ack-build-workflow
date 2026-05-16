@@ -225,12 +225,15 @@ jobs:
                   else tools/bazel build ${EXTRA_ARGS} //common:${config}
                 fi
 
+                ls -al
+
                 if [ -f "${OUT_BAZEL_DIR}/${config}/${IMAGE_TYPE}" ]; 
                   then
                     sudo chmod 777 -R ${OUT_BAZEL_DIR}/${config}
                     mv "${OUT_BAZEL_DIR}/${config}/${IMAGE_TYPE}" "${FINAL_DIR}/${IMAGE_TYPE}-${config}"
                   else
                     echo "Error: Output image not found for ${config} (1)"
+                    ls -al
                     exit 1
                 fi
               else
