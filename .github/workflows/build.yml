@@ -229,11 +229,14 @@ jobs:
 
                 if [ -f "${OUT_BAZEL_DIR}/${config}/${IMAGE_TYPE}" ]; 
                   then
-                    sudo chmod 777 -R ${OUT_BAZEL_DIR}/${config}
+                    echo checking
+                    sudo chmod 777 -R ${OUT_BAZEL_DIR}
+                    sudo chmod 777 -R ${OUT_BAZEL_DIR}/*
+                    echo moving
                     mv "${OUT_BAZEL_DIR}/${config}/${IMAGE_TYPE}" "${FINAL_DIR}/${IMAGE_TYPE}-${config}"
                   else
                     echo "Error: Output image not found for ${config} (1)"
-                    ls -al
+                    ls -al ${FINAL_DIR}
                     exit 1
                 fi
               else
