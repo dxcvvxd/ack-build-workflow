@@ -199,6 +199,11 @@ jobs:
             --fetch-submodules \
             -j$(nproc --all)
 
+      - name: Sync KernelSU-Next
+        working-directory: kernel-build/common
+        run: |
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next-susfs-a13-5.15-dev
+
       - name: Build, and process the kernel(s)
         working-directory: kernel-build
         env:
@@ -225,7 +230,7 @@ jobs:
                     sudo chmod 777 -R ${OUT_BAZEL_DIR}/${config}
                     mv "${OUT_BAZEL_DIR}/${config}/${IMAGE_TYPE}" "${FINAL_DIR}/${IMAGE_TYPE}-${config}"
                   else
-                    echo "Error: Output image not found for ${config}"
+                    echo "Error: Output image not found for ${config} (1)"
                     exit 1
                 fi
               else
@@ -235,7 +240,7 @@ jobs:
                   then 
                     mv "${OUT_DIR}/dist/${IMAGE_TYPE}" "${FINAL_DIR}/${IMAGE_TYPE}-${config}"
                   else
-                    echo "Error: Output image not found for ${config}"
+                    echo "Error: Output image not found for ${config} (2)"
                     exit 1
                 fi
             fi
