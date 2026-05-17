@@ -227,7 +227,7 @@ jobs:
 
                 ls -l
                 ls -l ${FINAL_DIR}
-                ls -l bazel_out
+                ls -l bazel-out
                 ls -l bazel-kernel-build
                 
                 if [ -f "${OUT_BAZEL_DIR}/${config}/${IMAGE_TYPE}" ]; 
