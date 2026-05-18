@@ -31,7 +31,7 @@ on:
       custom_kernel_repo:
         description: 'Custom kernel repository'
         required: true
-        default: 'https://github.com/chickendrop89/device_xiaomi_unified-kernel'
+        default: 'https://github.com/dxcvvxd/device_xiaomi_unified-kernel'
         type: string
       custom_kernel_repo_branch:
         description: 'Custom kernel repository branch'
@@ -46,7 +46,7 @@ on:
       anykernel_url_plus_branch:
         description: 'Space-separated AnyKernel3 fork URL + (Optional) Branch'
         required: true
-        default: 'https://github.com/chickendrop89/AnyKernel3'
+        default: 'https://github.com/dxcvvxd/AnyKernel3'
         type: string
       kernel_image_type:
         description: 'Kernel image to package (Image.gz, Image.lz4, etc)'
@@ -68,7 +68,7 @@ on:
       build_configs:
         description: 'Space-separated list of build configurations'
         required: true
-        default: 'build.config.gki.aarch64.chickernel build.config.gki.aarch64.chickernel.ksun build.config.gki.aarch64.chickernel.ksun.susfs'
+        default: 'build.config.gki.aarch64.chickernel.ksun.susfs'
         type: string
 
 jobs:
@@ -202,7 +202,7 @@ jobs:
       - name: Sync KernelSU-Next
         working-directory: kernel-build/common
         run: |
-          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next-susfs-a13-5.15-dev
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -
 
       - name: Build, and process the kernel(s)
         working-directory: kernel-build
