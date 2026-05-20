@@ -31,7 +31,7 @@ on:
       custom_kernel_repo:
         description: 'Custom kernel repository'
         required: true
-        default: 'https://github.com/dxcvvxd/device_xiaomi_unified-kernel'
+        default: 'https://github.com/dxcvvxd/device_xiaomi_gemstones-kernel'
         type: string
       custom_kernel_repo_branch:
         description: 'Custom kernel repository branch'
@@ -197,8 +197,7 @@ jobs:
             --optimized-fetch \
             --force-sync \
             --fetch-submodules \
-            -j1
-            --fail-fast
+            -j$(nproc --all)
 
       - name: Sync KernelSU-Next
         working-directory: kernel-build/common
