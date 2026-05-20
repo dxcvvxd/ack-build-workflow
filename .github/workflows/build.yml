@@ -197,7 +197,8 @@ jobs:
             --optimized-fetch \
             --force-sync \
             --fetch-submodules \
-            -j$(nproc --all)
+            -j1
+            --fail-fast
 
       - name: Sync KernelSU-Next
         working-directory: kernel-build/common
