@@ -73,7 +73,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       BUILD_CONFIGS: ${{ github.event.inputs.build_configs }}
       IMAGE_TYPE: ${{ github.event.inputs.kernel_image_type }}
@@ -177,6 +177,32 @@ jobs:
           chmod a+rx ~/.bin/repo
           echo "${HOME}/.bin" >> ${GITHUB_PATH}
 
+      - name: Setup ccache
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ccache
+
+          mkdir -p ~/.ccache
+
+          echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
+          echo "CCACHE_COMPRESS=true" >> $GITHUB_ENV
+          echo "CCACHE_MAXSIZE=10G" >> $GITHUB_ENV
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      - name: Cache repo
+        uses: actions/cache@v4
+        with:
+          path: |
+            kernel-build/.repo
+          key: ${{ runner.os }}-repo-${{ env.ACK_BRANCH }}
+
       - name: Clean up container
         uses: rokibhasansagar/slimhub_actions@main
 
@@ -195,14 +221,8 @@ jobs:
             --clone-bundle \
             --current-branch \
             --optimized-fetch \
-            --force-sync \
             --fetch-submodules \
             -j$(nproc --all)
-
-      - name: Sync KernelSU-Next
-        working-directory: kernel-build/common
-        run: |
-          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -
 
       - name: Build, and process the kernel(s)
         working-directory: kernel-build
@@ -212,6 +232,9 @@ jobs:
           USE_KLEAF: ${{ github.event.inputs.use_kleaf }}
           OUT_DIR: ${{ github.workspace }}/kernel-build/out
           OUT_BAZEL_DIR: ${{ github.workspace }}/kernel-build/bazel-bin/common
+          CC: ccache clang
+          USE_CCACHE: 1
+          CCACHE_EXEC: /usr/bin/ccache
         run: |
           mkdir -p "${FINAL_DIR}"
 
@@ -252,6 +275,9 @@ jobs:
             fi
           done
 
+      - name: ccache stats
+        run: ccache -s
+
       - name: Package Kernels with AnyKernel3
         working-directory: kernel-build
         run: |
@@ -261,7 +287,7 @@ jobs:
               cd "${AK3_DIR}-${config}"
               
               cp "${FINAL_DIR}/${IMAGE_TYPE}-${config}" "${AK3_DIR}-${config}/${IMAGE_TYPE}"
-              zip -r9 "${FINAL_DIR}/${config}.zip" * -x .git README.md *placeholder
+              zip -r3 "${FINAL_DIR}/${config}.zip" * -x .git README.md *placeholder
               
               cd ..
             fi
