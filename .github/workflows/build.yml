@@ -229,7 +229,7 @@ jobs:
 
       - name: Clean output dir
         run: rm -rf out
-
+        
       - name: Build and package kernel(s)
         working-directory: kernel-build
         env:
@@ -238,20 +238,19 @@ jobs:
           USE_KLEAF: ${{ github.event.inputs.use_kleaf }}
           OUT_DIR: ${{ github.workspace }}/kernel-build/out
           OUT_BAZEL_DIR: ${{ github.workspace }}/kernel-build/bazel-bin/common
-          CC: "ccache clang"
-          CXX: "ccache clang++"
           USE_CCACHE: 1
           CCACHE_EXEC: /usr/bin/ccache
+      
         run: |
           set -e
-
           mkdir -p "${FINAL_DIR}"
-
           export PATH="/usr/lib/ccache:$PATH"
+          export CC="ccache clang"
+          export CXX="ccache clang++"
 
           for config in ${BUILD_CONFIGS}; do
             echo "Building config: ${config}"
-
+            
             if [ "${USE_KLEAF}" = "true" ]; then
 
               if [ "${FAST_BUILD}" = "true" ]; then
@@ -286,22 +285,11 @@ jobs:
 
             zip -r9 "${FINAL_DIR}/${config}.zip" . \
               -x ".git/*" \
-                 "README.md" \
-                 "*placeholder*"
+              -x "README.md" \
+              -x "*placeholder*"
 
             cd ..
 
             rm -rf "${WORK_AK3_DIR}"
 
           done
-
-      - name: ccache stats
-        run: ccache -sv
-
-      - name: Upload Kernel Packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: kernel-packages
-          path: kernel-build/final_images/*.zip
-          if-no-files-found: error
-          retention-days: 30
