@@ -228,7 +228,10 @@ jobs:
             -j$(nproc --all)
 
       - name: Clean output dir
-        run: rm -rf out
+        run: |
+          rm -rf out
+          rm -rf bazel-out
+          rm -rf bazel-bin
 
       - name: Build, and process the kernel(s)
         working-directory: kernel-build
