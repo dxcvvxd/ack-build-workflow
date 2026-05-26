@@ -230,7 +230,7 @@ jobs:
       - name: Clean output dir
         run: rm -rf out
 
-      - name: Build, and process the kernel(s)
+      - name: Build and package kernel(s)
         working-directory: kernel-build
         env:
           EXTRA_ARGS: ${{ github.event.inputs.extra_args }}
@@ -238,72 +238,70 @@ jobs:
           USE_KLEAF: ${{ github.event.inputs.use_kleaf }}
           OUT_DIR: ${{ github.workspace }}/kernel-build/out
           OUT_BAZEL_DIR: ${{ github.workspace }}/kernel-build/bazel-bin/common
-          CC: ccache clang
+          CC: "ccache clang"
+          CXX: "ccache clang++"
           USE_CCACHE: 1
           CCACHE_EXEC: /usr/bin/ccache
         run: |
+          set -e
+
           mkdir -p "${FINAL_DIR}"
 
+          export PATH="/usr/lib/ccache:$PATH"
+
           for config in ${BUILD_CONFIGS}; do
-            echo "Building kernel config ${config+1}: ${config}"
-            
-            if [ "${USE_KLEAF}" = true ]; 
-              then
-                if [ "${FAST_BUILD}" = true ]; 
-                  then tools/bazel build ${EXTRA_ARGS} --config=fast //common:${config}
-                  else tools/bazel build ${EXTRA_ARGS} //common:${config}
-                fi
+            echo "Building config: ${config}"
 
-                ls -l
-                ls -l ${FINAL_DIR}
-                ls -l bazel-out
-                ls -l bazel-kernel-build
-                
-                if [ -f "${OUT_BAZEL_DIR}/${config}/${IMAGE_TYPE}" ]; 
-                  then
-                    sudo chmod 777 -R ${OUT_BAZEL_DIR}
-                    sudo chmod 777 -R ${OUT_BAZEL_DIR}/*
-                    mv "${OUT_BAZEL_DIR}/${config}/${IMAGE_TYPE}" "${FINAL_DIR}/${IMAGE_TYPE}-${config}"
-                  else
-                    echo "Error: Output image not found for ${config} (1)"
-                    exit 1
-                fi
+            if [ "${USE_KLEAF}" = "true" ]; then
+
+              if [ "${FAST_BUILD}" = "true" ]; then
+                tools/bazel build ${EXTRA_ARGS} --config=fast //common:${config}
               else
-                BUILD_CONFIG=common/${config} ${EXTRA_ARGS} build/build.sh
+                tools/bazel build ${EXTRA_ARGS} //common:${config}
+              fi
 
-                if [ -f "${OUT_DIR}/dist/${IMAGE_TYPE}" ]; 
-                  then 
-                    mv "${OUT_DIR}/dist/${IMAGE_TYPE}" "${FINAL_DIR}/${IMAGE_TYPE}-${config}"
-                  else
-                    echo "Error: Output image not found for ${config} (2)"
-                    exit 1
-                fi
+              IMAGE_PATH="${OUT_BAZEL_DIR}/${config}/${IMAGE_TYPE}"
+
+            else
+
+              BUILD_CONFIG=common/${config} ${EXTRA_ARGS} build/build.sh
+
+              IMAGE_PATH="${OUT_DIR}/dist/${IMAGE_TYPE}"
+
             fi
+
+            if [ ! -f "${IMAGE_PATH}" ]; then
+              echo "ERROR: Kernel image not found for ${config}"
+              exit 1
+            fi
+
+            WORK_AK3_DIR="${AK3_DIR}-${config}"
+
+            rm -rf "${WORK_AK3_DIR}"
+            cp -r "${AK3_DIR}" "${WORK_AK3_DIR}"
+
+            cp "${IMAGE_PATH}" "${WORK_AK3_DIR}/${IMAGE_TYPE}"
+
+            cd "${WORK_AK3_DIR}"
+
+            zip -r9 "${FINAL_DIR}/${config}.zip" . \
+              -x ".git/*" \
+                 "README.md" \
+                 "*placeholder*"
+
+            cd ..
+
+            rm -rf "${WORK_AK3_DIR}"
+
           done
 
       - name: ccache stats
         run: ccache -sv
 
-      - name: Package Kernels with AnyKernel3
-        working-directory: kernel-build
-        run: |
-          for config in ${BUILD_CONFIGS}; do
-            if [ -f "${FINAL_DIR}/${IMAGE_TYPE}-${config}" ]; then
-              cp -r "${AK3_DIR}" "${AK3_DIR}-${config}"
-              cd "${AK3_DIR}-${config}"
-              
-              cp "${FINAL_DIR}/${IMAGE_TYPE}-${config}" "${AK3_DIR}-${config}/${IMAGE_TYPE}"
-              zip -r9 "${FINAL_DIR}/${config}.zip" * -x .git README.md *placeholder
-              
-              cd ..
-            fi
-          done
-
       - name: Upload Kernel Packages
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-package
-          path: |
-            kernel-build/final_images/*
+          name: kernel-packages
+          path: kernel-build/final_images/*.zip
           if-no-files-found: error
           retention-days: 30
