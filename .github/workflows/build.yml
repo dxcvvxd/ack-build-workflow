@@ -187,6 +187,9 @@ jobs:
           echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
           echo "CCACHE_COMPRESS=true" >> $GITHUB_ENV
           echo "CCACHE_MAXSIZE=10G" >> $GITHUB_ENV
+          echo "/usr/lib/ccache" >> $GITHUB_PATH
+
+          ccache -z
 
       - name: Cache ccache
         uses: actions/cache@v4
