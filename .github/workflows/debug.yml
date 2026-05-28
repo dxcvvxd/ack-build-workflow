@@ -108,7 +108,6 @@ jobs:
         working-directory: kernel-build
         run: |
           repo init \
-            --depth=1 \
             --no-tags \
             --dissociate \
             -u https://android.googlesource.com/kernel/manifest \
