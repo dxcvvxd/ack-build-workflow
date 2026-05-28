@@ -190,6 +190,9 @@ jobs:
 
           echo "${HOME}/.bin" >> ${GITHUB_PATH}
 
+      - name: Cleanup runner
+        uses: rokibhasansagar/slimhub_actions@main
+
       - name: Setup ccache
         shell: bash
         run: |
@@ -222,8 +225,6 @@ jobs:
           path: kernel-build/.repo
           key: ${{ runner.os }}-repo-${{ env.ACK_BRANCH }}
 
-      - name: Cleanup runner
-        uses: rokibhasansagar/slimhub_actions@main
 
       - name: Init and sync repo
         working-directory: kernel-build
@@ -245,6 +246,12 @@ jobs:
             --optimized-fetch \
             --fetch-submodules \
             -j$(nproc --all)
+
+      - name: Fix KernelSU versioning
+        working-directory: kernel-build/common/KernelSU-Next
+        run: |
+          git fetch --unshallow || true
+          git fetch --tags
 
       - name: Clean output directories
         working-directory: kernel-build
@@ -292,11 +299,7 @@ jobs:
 
             ((i++))
           done
-
-      - name: Show ccache stats
-        shell: bash
-        run: ccache -sv
-
+          
       - name: Package with AnyKernel3
         working-directory: kernel-build
         shell: bash
