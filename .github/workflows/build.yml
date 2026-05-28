@@ -5,14 +5,6 @@
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation, either version 3 of the License, or
 #  (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 name: Build Android Common Kernel
 
@@ -24,49 +16,48 @@ on:
   workflow_dispatch:
     inputs:
       ack_branch:
-        description: 'Android-common-kernel branch (e.g. common-android13-5.15)'
+        description: 'Android-common-kernel branch'
         required: true
         default: 'common-android13-5.15'
         type: string
+
       custom_kernel_repo:
         description: 'Custom kernel repository'
         required: true
         default: 'https://github.com/dxcvvxd/device_xiaomi_gemstones-kernel'
         type: string
+
       custom_kernel_repo_branch:
         description: 'Custom kernel repository branch'
         required: true
         default: 'android13-5.15-lts'
         type: string
+
       use_latest_clang:
-        description: 'Use the latest clang prebuilts (Check README!)'
+        description: 'Use latest clang prebuilts'
         required: true
         default: true
         type: boolean
+
       anykernel_url_plus_branch:
-        description: 'Space-separated AnyKernel3 fork URL + (Optional) Branch'
+        description: 'AnyKernel3 URL + optional branch'
         required: true
         default: 'https://github.com/dxcvvxd/AnyKernel3'
         type: string
+
       kernel_image_type:
-        description: 'Kernel image to package (Image.gz, Image.lz4, etc)'
+        description: 'Kernel image type'
         required: true
         default: 'Image'
-      fast_build:
-        description: 'Instruct tools to perform a Fast Build'
-        required: true
-        default: true
-        type: boolean
-      use_kleaf:
-        description: 'Use the kleaf build system instead of build script'
-        required: true
-        default: false
-        type: boolean
+        type: string
+
       extra_args:
-        description: 'Extra arguments that will be passed to build system/script'
+        description: 'Extra arguments passed to build.sh'
         required: false
+        type: string
+
       build_configs:
-        description: 'Space-separated list of build configurations'
+        description: 'Space-separated list of build configs'
         required: true
         default: 'build.config.gki.aarch64.chickernel.ksun.susfs'
         type: string
@@ -74,6 +65,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
+
     env:
       BUILD_CONFIGS: ${{ github.event.inputs.build_configs }}
       IMAGE_TYPE: ${{ github.event.inputs.kernel_image_type }}
@@ -88,97 +80,121 @@ jobs:
 
     steps:
       - name: Validate inputs
+        shell: bash
         run: |
+          set -e
+
           AK3_GIT_URL=$(echo "${AK3_GIT_URL_PLUS_BRANCH}" | awk '{print $1}')
           AK3_GIT_BRANCH=$(echo "${AK3_GIT_URL_PLUS_BRANCH}" | awk '{print $2}')
-          
-          # Export these variables while we're at it
+
           echo "AK3_GIT_URL=${AK3_GIT_URL}" >> ${GITHUB_ENV}
           echo "AK3_GIT_BRANCH=${AK3_GIT_BRANCH}" >> ${GITHUB_ENV}
 
           validate_url() {
-            if [[ ! "$1" =~ ^https://.+/.+/.+$ ]]; 
-              then
-                echo "Invalid URL: $1"
-                echo "URL must be a valid HTTPS git repository URL"
-                exit 1
+            if [[ ! "$1" =~ ^https://.+/.+/.+$ ]]; then
+              echo "::error::Invalid URL: $1"
+              exit 1
             fi
           }
-
-          validate_url ${COMMON_REPO}
-          validate_url ${AK3_GIT_URL}
 
           validate_single_word() {
-            if [[ "$1" =~ [[:space:]] ]]; 
-              then
-                echo "::error::Invalid $2: $1"
-                echo "$2 must be a single word without spaces"
-                exit 1
+            if [[ "$1" =~ [[:space:]] ]]; then
+              echo "::error::Invalid $2: $1"
+              exit 1
             fi
           }
 
-          validate_single_word "${ACK_BRANCH}" \
-          "Android-common-kernel branch"
+          validate_url "${COMMON_REPO}"
+          validate_url "${AK3_GIT_URL}"
 
-          validate_single_word "${COMMON_REPO_BRANCH}" \
-          "Custom Kernel repo branch"
+          validate_single_word "${ACK_BRANCH}" "ACK branch"
+          validate_single_word "${COMMON_REPO_BRANCH}" "Kernel repo branch"
+          validate_single_word "${IMAGE_TYPE}" "Image type"
 
-          if [ ! -z "${AK3_GIT_BRANCH}" ]; 
-            then 
-              validate_single_word "${AK3_GIT_BRANCH}" \
-              "AnyKernel3 fork branch"
+          if [ -n "${AK3_GIT_BRANCH}" ]; then
+            validate_single_word "${AK3_GIT_BRANCH}" "AK3 branch"
           fi
 
-          validate_single_word "${IMAGE_TYPE}" \
-          "Kernel image type"
-
-      - name: Setup build workspace and a local manifest
+      - name: Setup workspace and manifest
+        shell: bash
         env:
           USE_LATEST_CLANG: ${{ github.event.inputs.use_latest_clang }}
           CUSTOM_MANIFEST: .repo/local_manifests/custom.xml
         run: |
+          set -e
+
           REPO_SOURCE=$(echo ${COMMON_REPO} | cut -d'/' -f3)
           REPO_OWNER=$(echo ${COMMON_REPO} | cut -d'/' -f4)
           REPO_NAME=$(echo ${COMMON_REPO} | cut -d'/' -f5)
 
-          mkdir kernel-build && cd $_
+          mkdir kernel-build
+          cd kernel-build
+
           mkdir -p .repo/local_manifests
 
-          mecho() {
-            echo "$1" >> "${CUSTOM_MANIFEST}"
-          }
+          cat > ${CUSTOM_MANIFEST} << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <manifest>
+            <remote
+              name="common-repo"
+              fetch="https://${REPO_SOURCE}/${REPO_OWNER}" />
 
-          mecho '<?xml version="1.0" encoding="UTF-8"?>'
-          mecho '<manifest>'
-          mecho "  <remote name=\"common-repo\" fetch=\"https://${REPO_SOURCE}/${REPO_OWNER}\" />"
-          mecho ''
-          mecho '  <remove-project name="kernel/common" />'
-          mecho "  <project path=\"common\" name=\"${REPO_NAME}\" remote=\"common-repo\" revision=\"${COMMON_REPO_BRANCH}\" >"
-          mecho '    <linkfile src="." dest=".source_date_epoch_dir" />'
-          mecho '  </project>'
+            <remove-project name="kernel/common" />
+
+            <project
+              path="common"
+              name="${REPO_NAME}"
+              remote="common-repo"
+              revision="${COMMON_REPO_BRANCH}">
+
+              <linkfile src="." dest=".source_date_epoch_dir" />
+            </project>
+          EOF
 
           if [ "${USE_LATEST_CLANG}" = true ]; then
-            mecho '  <remove-project name="platform/prebuilts/clang/host/linux-x86" />'
-            mecho '  <project path="prebuilts/clang/host/linux-x86" name="platform/prebuilts/clang/host/linux-x86" revision="main" clone-depth="1" />'
+            cat >> ${CUSTOM_MANIFEST} << EOF
+              <remove-project name="platform/prebuilts/clang/host/linux-x86" />
+
+              <project
+                path="prebuilts/clang/host/linux-x86"
+                name="platform/prebuilts/clang/host/linux-x86"
+                revision="main"
+                clone-depth="1" />
+          EOF
           fi
 
-          mecho '</manifest>'
+          echo "</manifest>" >> ${CUSTOM_MANIFEST}
 
-      - name: Download build utilities
+      - name: Download utilities
         working-directory: kernel-build
+        shell: bash
         run: |
-          if [ -z "${AK3_GIT_BRANCH}" ]
-            then git clone --depth=1 ${AK3_GIT_URL} "${AK3_DIR}"
-            else git clone --depth=1 ${AK3_GIT_URL} "${AK3_DIR}" -b ${AK3_GIT_BRANCH}
+          set -e
+
+          if [ -z "${AK3_GIT_BRANCH}" ]; then
+            git clone --depth=1 "${AK3_GIT_URL}" "${AK3_DIR}"
+          else
+            git clone --depth=1 \
+              -b "${AK3_GIT_BRANCH}" \
+              "${AK3_GIT_URL}" \
+              "${AK3_DIR}"
           fi
 
           mkdir -p ~/.bin
-          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/.bin/repo
+
+          curl -L \
+            https://storage.googleapis.com/git-repo-downloads/repo \
+            > ~/.bin/repo
+
           chmod a+rx ~/.bin/repo
+
           echo "${HOME}/.bin" >> ${GITHUB_PATH}
 
       - name: Setup ccache
+        shell: bash
         run: |
+          set -e
+
           sudo apt-get update
           sudo apt-get install -y ccache
 
@@ -187,6 +203,7 @@ jobs:
           echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
           echo "CCACHE_COMPRESS=true" >> $GITHUB_ENV
           echo "CCACHE_MAXSIZE=10G" >> $GITHUB_ENV
+
           echo "/usr/lib/ccache" >> $GITHUB_PATH
 
           ccache -z
@@ -195,23 +212,25 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          key: ${{ runner.os }}-ccache-${{ github.ref_name }}
           restore-keys: |
             ${{ runner.os }}-ccache-
 
       - name: Cache repo
         uses: actions/cache@v4
         with:
-          path: |
-            kernel-build/.repo
+          path: kernel-build/.repo
           key: ${{ runner.os }}-repo-${{ env.ACK_BRANCH }}
 
-      - name: Clean up container
+      - name: Cleanup runner
         uses: rokibhasansagar/slimhub_actions@main
 
-      - name: Initialize the manifest, and sync
+      - name: Init and sync repo
         working-directory: kernel-build
+        shell: bash
         run: |
+          set -e
+
           repo init \
             --no-tags \
             --depth=1 \
@@ -227,86 +246,94 @@ jobs:
             --fetch-submodules \
             -j$(nproc --all)
 
-      - name: Clean output dir
+      - name: Clean output directories
+        working-directory: kernel-build
+        shell: bash
         run: |
           rm -rf out
-          rm -rf bazel-out
-          rm -rf bazel-bin
+          rm -rf final_images
 
-      - name: Build, and process the kernel(s)
-        working-directory: kernel-build
+      - name: Build kernels
+        working-directory: kernel-build/common
+        shell: bash
         env:
           EXTRA_ARGS: ${{ github.event.inputs.extra_args }}
-          FAST_BUILD: ${{ github.event.inputs.fast_build }}
-          USE_KLEAF: ${{ github.event.inputs.use_kleaf }}
           OUT_DIR: ${{ github.workspace }}/kernel-build/out
-          OUT_BAZEL_DIR: ${{ github.workspace }}/kernel-build/bazel-bin/common
-          CC: ccache clang
+
+          CC: "ccache clang"
           USE_CCACHE: 1
           CCACHE_EXEC: /usr/bin/ccache
         run: |
+          set -e
+
           mkdir -p "${FINAL_DIR}"
 
+          i=1
+
           for config in ${BUILD_CONFIGS}; do
-            echo "Building kernel config ${config+1}: ${config}"
-            
-            if [ "${USE_KLEAF}" = true ]; 
-              then
-                if [ "${FAST_BUILD}" = true ]; 
-                  then tools/bazel build ${EXTRA_ARGS} --config=fast //common:${config}
-                  else tools/bazel build ${EXTRA_ARGS} //common:${config}
-                fi
+            echo "======================================="
+            echo "Building config ${i}: ${config}"
+            echo "======================================="
 
-                ls -l
-                ls -l ${FINAL_DIR}
-                ls -l bazel-out
-                ls -l bazel-kernel-build
-                
-                if [ -f "${OUT_BAZEL_DIR}/${config}/${IMAGE_TYPE}" ]; 
-                  then
-                    sudo chmod 777 -R ${OUT_BAZEL_DIR}
-                    sudo chmod 777 -R ${OUT_BAZEL_DIR}/*
-                    mv "${OUT_BAZEL_DIR}/${config}/${IMAGE_TYPE}" "${FINAL_DIR}/${IMAGE_TYPE}-${config}"
-                  else
-                    echo "Error: Output image not found for ${config} (1)"
-                    exit 1
-                fi
-              else
-                BUILD_CONFIG=common/${config} ${EXTRA_ARGS} build/build.sh
+            BUILD_CONFIG=${config} \
+            CC="ccache clang" \
+            USE_CCACHE=1 \
+            CCACHE_EXEC=/usr/bin/ccache \
+            build/build.sh ${EXTRA_ARGS}
 
-                if [ -f "${OUT_DIR}/dist/${IMAGE_TYPE}" ]; 
-                  then 
-                    mv "${OUT_DIR}/dist/${IMAGE_TYPE}" "${FINAL_DIR}/${IMAGE_TYPE}-${config}"
-                  else
-                    echo "Error: Output image not found for ${config} (2)"
-                    exit 1
-                fi
+            if [ -f "${OUT_DIR}/dist/${IMAGE_TYPE}" ]; then
+              cp \
+                "${OUT_DIR}/dist/${IMAGE_TYPE}" \
+                "${FINAL_DIR}/${IMAGE_TYPE}-${config}"
+            else
+              echo "::error::Missing kernel image for ${config}"
+              exit 1
             fi
+
+            ((i++))
           done
 
-      - name: ccache stats
+      - name: Show ccache stats
+        shell: bash
         run: ccache -sv
 
-      - name: Package Kernels with AnyKernel3
+      - name: Package with AnyKernel3
         working-directory: kernel-build
+        shell: bash
         run: |
+          set -e
+
           for config in ${BUILD_CONFIGS}; do
-            if [ -f "${FINAL_DIR}/${IMAGE_TYPE}-${config}" ]; then
-              cp -r "${AK3_DIR}" "${AK3_DIR}-${config}"
-              cd "${AK3_DIR}-${config}"
-              
-              cp "${FINAL_DIR}/${IMAGE_TYPE}-${config}" "${AK3_DIR}-${config}/${IMAGE_TYPE}"
-              zip -r9 "${FINAL_DIR}/${config}.zip" * -x .git README.md *placeholder
-              
-              cd ..
+            IMAGE_PATH="${FINAL_DIR}/${IMAGE_TYPE}-${config}"
+
+            if [ ! -f "${IMAGE_PATH}" ]; then
+              echo "::error::Missing image for ${config}"
+              exit 1
             fi
+
+            WORK_DIR="ak3-${config}"
+
+            cp -r "${AK3_DIR}" "${WORK_DIR}"
+
+            cp "${IMAGE_PATH}" "${WORK_DIR}/${IMAGE_TYPE}"
+
+            cd "${WORK_DIR}"
+
+            zip -r9 \
+              "${FINAL_DIR}/${config}.zip" \
+              . \
+              -x ".git/*" \
+              "README.md" \
+              "*placeholder*"
+
+            cd ..
           done
 
-      - name: Upload Kernel Packages
+      - name: Upload kernel packages
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-package
+          name: kernel-packages
           path: |
-            kernel-build/final_images/*
+            kernel-build/final_images/*.zip
           if-no-files-found: error
           retention-days: 30
