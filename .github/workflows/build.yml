@@ -259,7 +259,24 @@ jobs:
         run: |
           rm -rf out
           rm -rf final_images
-
+      ###################################################
+      - name: Debug tree
+        working-directory: kernel-build
+        run: |
+          pwd
+      
+          echo "==== root ===="
+          ls -la
+      
+          echo "==== build dir ===="
+          ls -la build || true
+      
+          echo "==== common dir ===="
+          ls -la common || true
+      
+          echo "==== find build.sh ===="
+          find . -name build.sh
+      ###################################################
       - name: Build kernels
         working-directory: kernel-build/common
         shell: bash
