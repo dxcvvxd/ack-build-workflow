@@ -253,6 +253,22 @@ jobs:
           git fetch --unshallow || true
           git fetch --tags
 
+      - name: Debug build.sh
+        working-directory: kernel-build
+        run: |
+          pwd
+      
+          ls -l build
+          ls -l build/kernel
+          ls -l build/build.sh
+      
+          readlink -f build/build.sh || true
+      
+          file build/build.sh || true
+          file build/kernel/build.sh || true
+      
+          head -n 5 build/kernel/build.sh || true
+
       - name: Build kernels
         working-directory: kernel-build/common
         shell: bash
@@ -281,8 +297,8 @@ jobs:
             CCACHE_EXEC=/usr/bin/ccache \
             
             BUILD_CONFIG="common/${config}" \
-            bash ./build/build.sh ${EXTRA_ARGS}
-
+            bash ./build/kernel/build.sh ${EXTRA_ARGS}
+            
             if [ -f "${OUT_DIR}/dist/${IMAGE_TYPE}" ]; then
               cp \
                 "${OUT_DIR}/dist/${IMAGE_TYPE}" \
