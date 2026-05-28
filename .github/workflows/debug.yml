@@ -108,13 +108,13 @@ jobs:
         working-directory: kernel-build
         run: |
           repo init \
+            --depth=1 \
             --no-tags \
             --dissociate \
             -u https://android.googlesource.com/kernel/manifest \
             -b ${ACK_BRANCH}
 
           repo sync \
-            --depth=1 \
             --current-branch \
             --no-tags \
             --optimized-fetch \
