@@ -250,7 +250,7 @@ jobs:
       - name: Fix KernelSU versioning
         working-directory: kernel-build/common/KernelSU-Next
         run: |
-          git rev-parse --is-shallow-repository | grep -q true && \ 
+          git rev-parse --is-shallow-repository | grep -q true && \
           git fetch --unshallow
           git fetch --tags
 
