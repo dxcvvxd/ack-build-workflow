@@ -250,7 +250,8 @@ jobs:
       - name: Fix KernelSU versioning
         working-directory: kernel-build/common/KernelSU-Next
         run: |
-          git fetch --unshallow || true
+          git rev-parse --is-shallow-repository | grep -q true && \ 
+          git fetch --unshallow
           git fetch --tags
 
       - name: Debug build.sh
@@ -270,7 +271,7 @@ jobs:
           head -n 5 build/kernel/build.sh || true
 
       - name: Build kernels
-        working-directory: kernel-build/common
+        working-directory: kernel-build
         shell: bash
         env:
           EXTRA_ARGS: ${{ github.event.inputs.extra_args }}
@@ -290,15 +291,13 @@ jobs:
             echo "======================================="
             echo "Building config ${i}: ${config}"
             echo "======================================="
-
-            BUILD_CONFIG=${config} \
+          
+            BUILD_CONFIG="common/${config}" \
             CC="ccache clang" \
             USE_CCACHE=1 \
             CCACHE_EXEC=/usr/bin/ccache \
-            
-            BUILD_CONFIG="common/${config}" \
-            bash ./build/kernel/build.sh ${EXTRA_ARGS}
-            
+            build/build.sh ${EXTRA_ARGS}
+
             if [ -f "${OUT_DIR}/dist/${IMAGE_TYPE}" ]; then
               cp \
                 "${OUT_DIR}/dist/${IMAGE_TYPE}" \
