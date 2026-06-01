@@ -255,7 +255,7 @@ jobs:
           git fetch --tags
 
       - name: Debug build.sh
-        working-directory: kernel-build/common
+        working-directory: kernel-build
         run: |
           pwd
       
