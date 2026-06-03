@@ -255,21 +255,21 @@ jobs:
           git fetch --unshallow
           git fetch --tags
 
-      - name: Debug build.sh
-        working-directory: kernel-build
-        run: |
-          pwd
+      # - name: Debug build.sh
+      #   working-directory: kernel-build
+      #   run: |
+      #     pwd
       
-          ls -l build
-          ls -l build/kernel
-          ls -l build/build.sh
+      #     ls -l build
+      #     ls -l build/kernel
+      #     ls -l build/build.sh
       
-          readlink -f build/build.sh || true
+      #     readlink -f build/build.sh || true
       
-          file build/build.sh || true
-          file build/kernel/build.sh || true
+      #     file build/build.sh || true
+      #     file build/kernel/build.sh || true
       
-          head -n 5 build/kernel/build.sh || true
+      #     head -n 5 build/kernel/build.sh || true
 
       - name: Build kernels
         working-directory: kernel-build
@@ -281,6 +281,7 @@ jobs:
           CC: "ccache clang"
           USE_CCACHE: 1
           CCACHE_EXEC: /usr/bin/ccache
+          
         run: |
           set -e
 
