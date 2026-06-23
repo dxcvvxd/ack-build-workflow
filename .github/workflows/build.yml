@@ -30,7 +30,7 @@ on:
       custom_kernel_repo_branch:
         description: 'Custom kernel repository branch'
         required: true
-        default: 'android13-5.15-lts'
+        default: 'ack-merge-5.15-lts'
         type: string
 
       use_latest_clang:
