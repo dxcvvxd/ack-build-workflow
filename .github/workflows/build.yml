@@ -245,7 +245,7 @@ jobs:
             --clone-bundle \
             --current-branch \
             --optimized-fetch \
-            --fetch-submodules \
+            --recurse-submodules \
             -j$(nproc --all)
 
       - name: Fix KernelSU versioning
