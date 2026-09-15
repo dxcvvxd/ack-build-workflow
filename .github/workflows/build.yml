@@ -156,12 +156,6 @@ jobs:
           if [ "${USE_LATEST_CLANG}" = true ]; then
             cat >> ${CUSTOM_MANIFEST} << EOF
               <remove-project name="platform/prebuilts/clang/host/linux-x86" />
-
-              <project
-                path="prebuilts/clang/host/linux-x86"
-                name="platform/prebuilts/clang/host/linux-x86"
-                revision="70a12c4fe88940ab2b0e6d763492dffa2f07e15a"
-                clone-depth="1" />
           EOF
           fi
 
@@ -199,7 +193,40 @@ jobs:
         uses: actions/cache@v4
         with:
           path: kernel-build/prebuilts/clang/host/linux-x86
-          key: prebuilts-${{ github.ref_name }}-v3
+          key: prebuilts-${{ github.ref_name }}-v4
+
+      - name: Fetch pinned clang prebuilts (repo-independent)
+        working-directory: kernel-build
+        shell: bash
+        run: |
+          set -e
+
+          CLANG_REPO=prebuilts/clang/host/linux-x86
+          CLANG_COMMIT=70a12c4fe88940ab2b0e6d763492dffa2f07e15a
+          CLANG_DIR=clang-r547379
+
+          if [ -x "${CLANG_REPO}/${CLANG_DIR}/bin/clang" ]; then
+            echo "clang OK at ${CLANG_REPO}/${CLANG_DIR}/bin/clang"
+            exit 0
+          fi
+
+          echo "clang missing; fetching pinned ${CLANG_COMMIT}..."
+          rm -rf "${CLANG_REPO}"
+          mkdir -p "${CLANG_REPO}"
+          git init -q "${CLANG_REPO}"
+          git -C "${CLANG_REPO}" remote add origin \
+            https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86
+          git -C "${CLANG_REPO}" fetch --depth=1 --filter=blob:none origin "${CLANG_COMMIT}"
+          git -C "${CLANG_REPO}" sparse-checkout init --no-cone
+          git -C "${CLANG_REPO}" sparse-checkout set "${CLANG_DIR}"
+          git -C "${CLANG_REPO}" checkout -q "${CLANG_COMMIT}"
+
+          if [ ! -x "${CLANG_REPO}/${CLANG_DIR}/bin/clang" ]; then
+            echo "::error::clang ${CLANG_DIR} not found at ${CLANG_COMMIT}"
+            ls -1 "${CLANG_REPO}" 2>/dev/null | head -20 || true
+            exit 1
+          fi
+          echo "clang fetched at ${CLANG_REPO}/${CLANG_DIR}/bin/clang"
 
       - name: Init and sync repo
         working-directory: kernel-build
