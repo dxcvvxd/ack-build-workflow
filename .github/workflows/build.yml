@@ -233,46 +233,6 @@ jobs:
           git fetch --unshallow
           git fetch --tags
 
-      - name: Verify and repair clang toolchain
-        working-directory: kernel-build
-        shell: bash
-        run: |
-          set -e
-
-          CLANG_REPO=prebuilts/clang/host/linux-x86
-          NEED_CLANG_VERSION=$(grep -E '^CLANG_VERSION=' \
-            common/build.config.constants | cut -d= -f2)
-          TARGET_BIN="${CLANG_REPO}/clang-${NEED_CLANG_VERSION}/bin/clang"
-
-          echo "clang required: ${NEED_CLANG_VERSION}"
-          echo "clang target:   ${TARGET_BIN}"
-
-          ensure_clang() {
-            if [ -x "${TARGET_BIN}" ]; then
-              echo "clang OK at ${TARGET_BIN}"
-              return 0
-            fi
-            echo "clang missing at ${TARGET_BIN}; repairing..."
-            rm -rf "${CLANG_REPO}"
-            git clone \
-              --depth=1 \
-              --single-branch \
-              --branch main \
-              --filter=blob:none \
-              --sparse \
-              https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 \
-              "${CLANG_REPO}"
-            git -C "${CLANG_REPO}" sparse-checkout set "clang-${NEED_CLANG_VERSION}"
-            [ -x "${TARGET_BIN}" ] || {
-              echo "::error::clang repair failed: ${TARGET_BIN} not found"
-              ls -1 "${CLANG_REPO}" 2>/dev/null | head -20 || true
-              exit 1
-            }
-            echo "clang repaired at ${TARGET_BIN}"
-          }
-
-          ensure_clang
-
       # - name: Debug build.sh
       #   working-directory: kernel-build
       #   run: |
