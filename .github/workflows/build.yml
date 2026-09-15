@@ -34,7 +34,7 @@ on:
         type: string
 
       use_latest_clang:
-        description: 'Use latest clang prebuilts'
+        description: 'Use the latest clang prebuilts (keep true: constants pin CLANG_VERSION=r547379 which lives on clang main)'
         required: true
         default: true
         type: boolean
@@ -194,45 +194,15 @@ jobs:
       - name: Cleanup runner
         uses: rokibhasansagar/slimhub_actions@main
 
-      - name: Setup ccache
-        shell: bash
-        run: |
-          set -e
-
-          sudo apt-get update
-          sudo apt-get install -y ccache
-
-          mkdir -p ~/.ccache
-
-          echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
-          echo "CCACHE_COMPRESS=true" >> $GITHUB_ENV
-          echo "CCACHE_MAXSIZE=10G" >> $GITHUB_ENV
-
-          echo "/usr/lib/ccache" >> $GITHUB_PATH
-
-          ccache -z
-
-#      - name: Cache ccache
-#        uses: actions/cache@v4
-#        with:
-#          path: ~/.ccache
-#          key: ${{ runner.os }}-ccache-${{ github.ref_name }}
-#          restore-keys: |
-#            ${{ runner.os }}-ccache-
-
-#      - name: Cache repo
-#        uses: actions/cache@v4
-#        with:
-#          path: kernel-build/.repo
-#          key: ${{ runner.os }}-repo-${{ env.ACK_BRANCH }}
-
-
       - name: Init and sync repo
         working-directory: kernel-build
         shell: bash
         run: |
           set -e
 
+          max_attempts=3
+
+          # googlesource frequently throws transient 502/503; retry
           repo init \
             --no-tags \
             --depth=1 \
@@ -240,17 +210,25 @@ jobs:
             -u https://android.googlesource.com/kernel/manifest \
             -b ${ACK_BRANCH}
 
-          repo sync \
-            --no-tags \
-            --clone-bundle \
-            --current-branch \
-            --optimized-fetch \
-            --recurse-submodules \
-            -j$(nproc --all)
+          for attempt in $(seq 1 ${max_attempts}); do
+            echo "repo sync attempt ${attempt}/${max_attempts}"
+            repo sync \
+              --no-tags \
+              --clone-bundle \
+              --current-branch \
+              --optimized-fetch \
+              --force-sync \
+              --recurse-submodules \
+              -j$(nproc --all) && break
+            [ ${attempt} -eq ${max_attempts} ] && exit 1
+            sleep 30
+          done
 
       - name: Fix KernelSU versioning
         working-directory: kernel-build/common/KernelSU-Next
+        shell: bash
         run: |
+          set -e
           git rev-parse --is-shallow-repository | grep -q true && \
           git fetch --unshallow
           git fetch --tags
@@ -278,10 +256,6 @@ jobs:
           EXTRA_ARGS: ${{ github.event.inputs.extra_args }}
           OUT_DIR: ${{ github.workspace }}/kernel-build/out
 
-          CC: "ccache clang"
-          USE_CCACHE: 0
-          CCACHE_EXEC: /usr/bin/ccache
-          
         run: |
           set -e
 
@@ -293,11 +267,8 @@ jobs:
             echo "======================================="
             echo "Building config ${i}: ${config}"
             echo "======================================="
-          
+
             BUILD_CONFIG="common/${config}" \
-            CC="ccache clang" \
-            USE_CCACHE=1 \
-            CCACHE_EXEC=/usr/bin/ccache \
             build/build.sh ${EXTRA_ARGS}
 
             if [ -f "${OUT_DIR}/dist/${IMAGE_TYPE}" ]; then
