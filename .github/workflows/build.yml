@@ -34,7 +34,7 @@ on:
         type: string
 
       use_latest_clang:
-        description: 'Use the latest clang prebuilts (keep true: constants pin CLANG_VERSION=r547379 which lives on clang main)'
+        description: 'Use the latest clang prebuilts'
         required: true
         default: true
         type: boolean
