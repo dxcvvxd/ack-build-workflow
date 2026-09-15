@@ -334,11 +334,18 @@ jobs:
             cd ..
           done
 
+      - name: Bundle kernel packages
+        working-directory: kernel-build/final_images
+        shell: bash
+        run: |
+          set -e
+
+          zip -j9 "kernel-packages.zip" *.zip
+
       - name: Upload kernel packages
         uses: actions/upload-artifact@v4
         with:
           name: kernel-packages
-          path: |
-            kernel-build/final_images/*.zip
+          path: kernel-build/final_images/kernel-packages.zip
           if-no-files-found: error
           retention-days: 30
