@@ -146,7 +146,8 @@ jobs:
               path="common"
               name="${REPO_NAME}"
               remote="common-repo"
-              revision="${COMMON_REPO_BRANCH}">
+              revision="${COMMON_REPO_BRANCH}"
+              clone-depth="1">
 
               <linkfile src="." dest=".source_date_epoch_dir" />
             </project>
