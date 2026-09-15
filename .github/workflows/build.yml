@@ -34,7 +34,7 @@ on:
         type: string
 
       use_latest_clang:
-        description: 'Use the latest clang prebuilts'
+        description: 'Use pinned clang prebuilts rev (contains clang-r547379)'
         required: true
         default: true
         type: boolean
@@ -160,7 +160,7 @@ jobs:
               <project
                 path="prebuilts/clang/host/linux-x86"
                 name="platform/prebuilts/clang/host/linux-x86"
-                revision="main"
+                revision="70a12c4fe88940ab2b0e6d763492dffa2f07e15a"
                 clone-depth="1" />
           EOF
           fi
