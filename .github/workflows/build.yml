@@ -194,6 +194,15 @@ jobs:
       - name: Cleanup runner
         uses: rokibhasansagar/slimhub_actions@main
 
+      - name: Cache prebuilts (clang)
+        uses: actions/cache@v4
+        with:
+          path: kernel-build/prebuilts/clang/host/linux-x86
+          key: prebuilts-${{ github.ref_name }}-v1
+          restore-keys: |
+            prebuilts-${{ github.ref_name }}-
+            prebuilts-
+
       - name: Init and sync repo
         working-directory: kernel-build
         shell: bash
@@ -248,6 +257,15 @@ jobs:
       #     file build/kernel/build.sh || true
       
       #     head -n 5 build/kernel/build.sh || true
+
+      - name: Cache build output
+        uses: actions/cache@v4
+        with:
+          path: kernel-build/out
+          key: build-${{ github.sha }}
+          restore-keys: |
+            build-${{ github.ref_name }}-
+            build-
 
       - name: Build kernels
         working-directory: kernel-build
