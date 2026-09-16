@@ -8,10 +8,6 @@
 
 name: Build Android Common Kernel
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
-
 on:
   workflow_dispatch:
     inputs:
