@@ -41,21 +41,9 @@ on:
         default: 'https://github.com/dxcvvxd/AnyKernel3'
         type: string
 
-      kernel_image_type:
-        description: 'Kernel image type'
-        required: true
-        default: 'Image'
-        type: string
-
       extra_args:
         description: 'Extra arguments passed to build.sh'
         required: false
-        type: string
-
-      build_configs:
-        description: 'Space-separated list of build configs'
-        required: true
-        default: 'build.config.gki.aarch64.chickernel.ksun.susfs'
         type: string
 
 jobs:
@@ -64,8 +52,8 @@ jobs:
     runs-on: ubuntu-24.04
 
     env:
-      BUILD_CONFIGS: ${{ github.event.inputs.build_configs }}
-      IMAGE_TYPE: ${{ github.event.inputs.kernel_image_type }}
+      CONFIG: build.config.gki.aarch64.chickernel.ksun.susfs
+      IMAGE_TYPE: Image
 
       ACK_BRANCH: ${{ github.event.inputs.ack_branch }}
       COMMON_REPO: ${{ github.event.inputs.custom_kernel_repo }}
@@ -106,7 +94,6 @@ jobs:
 
           validate_single_word "${ACK_BRANCH}" "ACK branch"
           validate_single_word "${COMMON_REPO_BRANCH}" "Kernel repo branch"
-          validate_single_word "${IMAGE_TYPE}" "Image type"
 
           if [ -n "${AK3_GIT_BRANCH}" ]; then
             validate_single_word "${AK3_GIT_BRANCH}" "AK3 branch"
@@ -300,59 +287,33 @@ jobs:
 
           mkdir -p "${FINAL_DIR}"
 
-          i=1
+          echo "Building ${CONFIG}"
+          BUILD_CONFIG="common/${CONFIG}" \
+          build/build.sh ${EXTRA_ARGS}
 
-          for config in ${BUILD_CONFIGS}; do
-            echo "======================================="
-            echo "Building config ${i}: ${config}"
-            echo "======================================="
+          if [ ! -f "${OUT_DIR}/dist/${IMAGE_TYPE}" ]; then
+            echo "::error::Missing kernel image for ${CONFIG}"
+            exit 1
+          fi
 
-            BUILD_CONFIG="common/${config}" \
-            build/build.sh ${EXTRA_ARGS}
+          cp "${OUT_DIR}/dist/${IMAGE_TYPE}" "${FINAL_DIR}/${IMAGE_TYPE}"
 
-            if [ -f "${OUT_DIR}/dist/${IMAGE_TYPE}" ]; then
-              cp \
-                "${OUT_DIR}/dist/${IMAGE_TYPE}" \
-                "${FINAL_DIR}/${IMAGE_TYPE}-${config}"
-            else
-              echo "::error::Missing kernel image for ${config}"
-              exit 1
-            fi
-
-            ((i++))
-          done
-          
       - name: Package with AnyKernel3
         working-directory: kernel-build
         shell: bash
         run: |
           set -e
 
-          for config in ${BUILD_CONFIGS}; do
-            IMAGE_PATH="${FINAL_DIR}/${IMAGE_TYPE}-${config}"
+          cp -r "${AK3_DIR}" ak3-work
+          cp "${FINAL_DIR}/${IMAGE_TYPE}" "ak3-work/${IMAGE_TYPE}"
 
-            if [ ! -f "${IMAGE_PATH}" ]; then
-              echo "::error::Missing image for ${config}"
-              exit 1
-            fi
-
-            WORK_DIR="ak3-${config}"
-
-            cp -r "${AK3_DIR}" "${WORK_DIR}"
-
-            cp "${IMAGE_PATH}" "${WORK_DIR}/${IMAGE_TYPE}"
-
-            cd "${WORK_DIR}"
-
-            zip -r9 \
-              "${FINAL_DIR}/${config}.zip" \
-              . \
-              -x ".git/*" \
-              "README.md" \
-              "*placeholder*"
-
-            cd ..
-          done
+          cd ak3-work
+          zip -r9 \
+            "${FINAL_DIR}/${CONFIG}.zip" \
+            . \
+            -x ".git/*" \
+            "README.md" \
+            "*placeholder*"
 
       - name: Upload kernel packages
         uses: actions/upload-artifact@v4
