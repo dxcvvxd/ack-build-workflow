@@ -241,13 +241,28 @@ jobs:
             sleep 30
           done
 
+          # repo's --recurse-submodules is flaky (empty dirs on partial fetch);
+          # force a real submodule checkout before any step touches them
+          for attempt in $(seq 1 ${max_attempts}); do
+            echo "submodule update attempt ${attempt}/${max_attempts}"
+            git -C common submodule update --init --recursive \
+              && break
+            [ ${attempt} -eq ${max_attempts} ] && exit 1
+            sleep 10
+          done
+
+          git -C common submodule status
+
       - name: Fix KernelSU versioning
-        working-directory: kernel-build/common/KernelSU-Next
+        working-directory: kernel-build
         shell: bash
         run: |
           set -e
-          git rev-parse --is-shallow-repository | grep -q true && \
-          git fetch --unshallow
+          cd common/KernelSU-Next
+
+          if git rev-parse --is-shallow-repository | grep -q true; then
+            git fetch --unshallow
+          fi
           git fetch --tags
 
       # - name: Debug build.sh
