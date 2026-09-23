@@ -260,10 +260,16 @@ jobs:
           set -e
           cd common/KernelSU-Next
 
+          git remote get-url origin >/dev/null 2>&1 || \
+            git remote add origin https://github.com/KernelSU-Next/KernelSU-Next
+
           if git rev-parse --is-shallow-repository | grep -q true; then
-            git fetch --unshallow
+            git fetch --unshallow origin || true
           fi
-          git fetch --tags
+          git fetch origin --tags || true
+
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo none)
+          echo "KernelSU-Next HEAD: $(git rev-parse --short HEAD) (tag: ${TAG})"
 
       # - name: Debug build.sh
       #   working-directory: kernel-build
