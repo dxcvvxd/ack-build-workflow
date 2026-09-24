@@ -46,6 +46,12 @@ on:
         required: false
         type: string
 
+      update_ksu:
+        description: 'Auto-update KernelSU-Next to newest release tag (true) or keep pinned gitlink commit (false)'
+        required: false
+        default: true
+        type: boolean
+
 jobs:
   build:
     timeout-minutes: 720
@@ -253,9 +259,11 @@ jobs:
 
           git -C common submodule status
 
-      - name: Fix KernelSU versioning
+      - name: Update KernelSU-Next to latest
         working-directory: kernel-build
         shell: bash
+        env:
+          AUTO_UPDATE_KSU: ${{ github.event.inputs.update_ksu }}
         run: |
           set -e
           cd common/KernelSU-Next
@@ -268,7 +276,19 @@ jobs:
           fi
           git fetch origin --tags || true
 
-          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo none)
+          if [ "${AUTO_UPDATE_KSU}" = "true" ]; then
+            LATEST_TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v -- '-legacy' | head -1)
+            if [ -n "${LATEST_TAG}" ]; then
+              echo "KernelSU-Next: updating to latest tag ${LATEST_TAG}"
+              git -c advice.detachedHead=false checkout -q "${LATEST_TAG}"
+            else
+              echo "KernelSU-Next: no v* tags found, keeping tree as-is"
+            fi
+          else
+            echo "KernelSU-Next: keeping pinned gitlink commit"
+          fi
+
+          TAG=$(git describe --tags --exact-match 2>/dev/null || git describe --tags --abbrev=0 2>/dev/null || echo none)
           echo "KernelSU-Next HEAD: $(git rev-parse --short HEAD) (tag: ${TAG})"
 
       # - name: Debug build.sh
