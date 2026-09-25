@@ -105,15 +105,6 @@ jobs:
             validate_single_word "${AK3_GIT_BRANCH}" "AK3 branch"
           fi
 
-      - name: Install kernel build host dependencies
-        shell: bash
-        run: |
-          set -e
-          # resolve_btfids (BTF) and the build bootstrap need these host
-          # dev packages; GitHub runner images get them rotated out.
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq libelf-dev zlib1g-dev
-
       - name: Setup workspace and manifest
         shell: bash
         env:
@@ -186,6 +177,18 @@ jobs:
 
       - name: Cleanup runner
         uses: rokibhasansagar/slimhub_actions@main
+
+      - name: Install kernel build host dependencies
+        shell: bash
+        run: |
+          set -e
+          # Must run AFTER Cleanup runner: that step purges packages and can
+          # strip libelf-dev. resolve_btfids (CONFIG_DEBUG_INFO_BTF) compiles
+          # against libelf.h; runner image rotations keep dropping it.
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libelf-dev zlib1g-dev
+          test -f /usr/include/libelf.h && echo "libelf.h present" \
+            || { echo "::error::libelf.h still missing after install"; exit 1; }
 
       - name: Cache prebuilts (clang)
         uses: actions/cache@v4
@@ -334,6 +337,10 @@ jobs:
 
         run: |
           set -e
+
+          echo "== host check =="
+          test -f /usr/include/libelf.h && echo "libelf.h OK" || echo "libelf.h MISSING"
+          command -v clang && clang --version | head -1 || echo "clang not on PATH (prebuilt used)"
 
           mkdir -p "${FINAL_DIR}"
 
